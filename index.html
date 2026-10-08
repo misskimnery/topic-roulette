@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Topic Roulette</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: linear-gradient(160deg, #fde8dc 0%, #f8dbe8 35%, #e4dcf6 70%, #d6e6f7 100%);
+    --surface: #fbf8f6; --text: #3a3550; --muted: #8a84a0;
+    --shade: 120, 100, 170;   /* 그림자 색 (rgb) */
+    --hi: rgba(255, 255, 255, .95);
+    --accent: linear-gradient(180deg, #a99cf2, #7f8ff0);
+    --accent-text: #fff;
+    --row: 52px;
+    /* 클레이 질감: 바깥 그림자 + 아래쪽 안쪽 음영 + 위쪽 하이라이트 */
+    --clay: 0 14px 28px -10px rgba(var(--shade), .38), inset 0 -5px 10px rgba(var(--shade), .14), inset 0 5px 8px var(--hi);
+    --clay-pressed: 0 4px 10px -4px rgba(var(--shade), .4), inset 0 -2px 6px rgba(var(--shade), .14), inset 0 4px 8px var(--hi);
+    --clay-inset: inset 0 6px 14px rgba(var(--shade), .22), inset 0 -4px 8px var(--hi);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: linear-gradient(160deg, #2a2338 0%, #2b2540 50%, #1f2a3c 100%);
+      --surface: #3a3350; --text: #f1edfb; --muted: #b3abcc;
+      --shade: 5, 0, 20; --hi: rgba(255, 255, 255, .12);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { min-height: 100%; background: var(--bg) fixed; }
+  body {
+    margin: 0; color: var(--text); background: transparent;
+    font: 16px/1.4 "Nunito", system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  main { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 16px; }
+
+  header { display: flex; align-items: center; gap: 16px; }
+  .logo {
+    width: 72px; height: 72px; border-radius: 24px; flex: none; display: grid; place-items: center;
+    background: var(--accent); box-shadow: var(--clay);
+  }
+  .logo svg { width: 56px; margin-top: 4px; filter: drop-shadow(0 3px 4px rgba(60, 40, 120, .3)); }
+  h1 { font-size: 1.95rem; line-height: 1.15; font-weight: 800; margin: 0; }
+  h1 small { display: block; font-weight: 600; color: var(--muted); font-size: .9rem; line-height: 1.3; margin-top: 4px; word-break: keep-all; }
+
+  button { font: inherit; cursor: pointer; border: 0; color: var(--text); transition: transform .12s, box-shadow .12s; }
+  button:active:not(:disabled) { transform: translateY(3px); box-shadow: var(--clay-pressed); }
+  button:disabled { cursor: default; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px 6px; }
+  .chip {
+    --tint: #c9c0f5;
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--surface); border-radius: 999px; padding: 4px 10px 4px 6px; font-size: .8rem; font-weight: 700;
+    box-shadow: var(--clay);
+  }
+  .chip.dot::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--tint); box-shadow: inset 0 -1px 2px rgba(0,0,0,.15); }
+  .chip:nth-child(2) { --tint: #f7b9c8; }
+  .chip:nth-child(3) { --tint: #a6dcc4; }
+  .chip:nth-child(4) { --tint: #f6cfa3; }
+  .chip:nth-child(5) { --tint: #b7c9f5; }
+  .chip:nth-child(6) { --tint: #9fd8dd; }
+  .chip:nth-child(7) { --tint: #d8b9f2; }
+  .chip:nth-child(8) { --tint: #f3d98f; }
+  .chip:nth-child(9) { --tint: #f2b0a5; }
+  .chip[aria-pressed="true"] { background: var(--tint); color: #3a3550; transform: translateY(-2px); }
+  .chip.dot[aria-pressed="true"]::before { background: #fff; }
+  .chip:nth-child(10) { --tint: #bfe3b4; }
+  .emo { width: 20px; height: 20px; flex: none; filter: drop-shadow(0 2px 2px rgba(var(--shade), .3)); }
+  .chip:disabled:not([aria-pressed="true"]) { opacity: .6; }
+
+  /* 룰렛: 표면에 파인 홈 + 가운데 볼록한 선택 칸 */
+  .reel-window {
+    height: calc(var(--row) * 3 + 24px); padding: 12px; position: relative; overflow: hidden;
+    background: var(--surface); border-radius: 32px; box-shadow: var(--clay);
+  }
+  .reel-track { height: 100%; position: relative; overflow: hidden; border-radius: 22px; box-shadow: var(--clay-inset); }
+  .reel-track::before, .reel-track::after {
+    content: ""; position: absolute; left: 0; right: 0; height: var(--row); z-index: 2; pointer-events: none;
+  }
+  .reel-track::before { top: 0; background: linear-gradient(var(--surface), transparent); }
+  .reel-track::after { bottom: 0; background: linear-gradient(transparent, var(--surface)); }
+  .marker {
+    position: absolute; left: 8px; right: 8px; top: var(--row); height: var(--row); z-index: 0;
+    border-radius: 18px; background: var(--surface); box-shadow: var(--clay);
+  }
+  .reel { list-style: none; margin: 0; padding: 0; position: relative; z-index: 1; will-change: transform; }
+  .reel li {
+    height: var(--row); display: flex; align-items: center; justify-content: center; padding: 0 22px;
+    font-size: 1.15rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .spin {
+    border-radius: 24px; padding: 18px; font-size: 1.2rem; font-weight: 800; letter-spacing: .02em;
+    background: var(--accent); color: var(--accent-text); box-shadow: var(--clay);
+    text-shadow: 0 1px 2px rgba(60, 40, 120, .3);
+  }
+  .spin:disabled { background: var(--surface); color: var(--muted); text-shadow: none; box-shadow: var(--clay-inset); }
+
+  .result {
+    background: var(--surface); border-radius: 32px; padding: 18px 16px 16px; text-align: center; box-shadow: var(--clay);
+    animation: pop .35s cubic-bezier(.2, 1.4, .4, 1);
+  }
+  @keyframes pop { from { transform: scale(.92); opacity: 0; } }
+  .result[hidden] { display: none; }
+  .result .cat {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: .85rem; font-weight: 800;
+    background: #c9c0f5; color: #3a3550; box-shadow: var(--clay);
+  }
+  /* 1.8배, 폰에서는 긴 단어가 한 줄에 들어가도록 화면 폭에 맞춰 줄어듦 */
+  .result .en { font-size: clamp(2rem, 9vw, 3.06rem); font-weight: 900; margin: 14px 0 4px; overflow-wrap: break-word; line-height: 1.15; }
+  .result .ko { color: var(--muted); font-size: clamp(.9rem, 4.1vw, 1.275rem); font-weight: 600; }
+  .done {
+    width: 100%; margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap;
+    padding: 12px; border-radius: 18px; font-size: 1rem; font-weight: 800;
+    background: var(--accent); color: var(--accent-text); box-shadow: var(--clay); text-shadow: 0 1px 2px rgba(60, 40, 120, .3);
+  }
+  .done.is-done { background: #c9ecd9; color: #2f5a46; text-shadow: none; }
+  .done .sep { opacity: .6; }
+  .actions { display: flex; gap: 10px; margin-top: 18px; }
+  .actions button {
+    flex: 1; background: var(--surface); border-radius: 16px; padding: 12px; font-size: .95rem; font-weight: 700;
+    white-space: nowrap; box-shadow: var(--clay);
+  }
+  .actions #copy { flex: 0 0 auto; padding: 12px 20px; }
+  .actions button:disabled { color: var(--muted); box-shadow: var(--clay-inset); }
+
+  details { color: var(--muted); font-size: .9rem; background: var(--surface); border-radius: 20px; padding: 12px 16px; box-shadow: var(--clay); }
+  summary { cursor: pointer; font-weight: 700; }
+  details ul { padding-left: 18px; margin: 10px 0 0; }
+  details li { margin: 4px 0; }
+
+  /* 캐릭터: 룰렛 오른쪽 위에 걸터앉음 */
+  .stage { position: relative; margin-top: 42px; }
+  .char { position: absolute; right: 14px; top: -66px; width: 96px; z-index: 3; cursor: pointer; -webkit-tap-highlight-color: transparent; animation: float 3s ease-in-out infinite; --spd: .28s; }
+  .char svg { display: block; width: 100%; overflow: visible; }
+  .char .rig { transform-box: fill-box; transform-origin: 50% 100%; animation: twitch 4.2s ease-in-out infinite; }
+  .char .arm { transform-box: fill-box; transform-origin: 50% 12%; transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+  .char .face { display: none; }
+  .char .face-idle { display: inline; }
+  .char.idea .face { display: none; }
+  .char.idea .face-wink { display: inline; }
+  @keyframes float { 50% { transform: translateY(-5px); } }
+  @keyframes twitch { /* 가끔 움찔 */
+    0%, 60%, 82%, 100% { transform: none; }
+    65% { transform: scale(1.07, .92); } 71% { transform: scale(.95, 1.06); } 76% { transform: scale(1.02, .98); }
+  }
+
+  /* 돌리는 중: 두 팔을 번갈아 휘저으며 몸이 들썩 */
+  .char.spinning { animation: none; }
+  .char.slowing { --spd: .55s; }
+  .char.spinning .rig { animation: lean var(--spd) ease-in-out infinite alternate; }
+  .char.spinning .arm-l { animation: paddle-l var(--spd) ease-in-out infinite alternate; }
+  .char.spinning .arm-r { animation: paddle-r var(--spd) ease-in-out infinite alternate-reverse; }
+  .char.spinning .face { display: none; }
+  .char.spinning .face-focus { display: inline; }
+  @keyframes lean { from { transform: rotate(-4deg); } to { transform: rotate(3deg) translateY(3px) scale(1.03, .97); } }
+  @keyframes paddle-l { from { transform: rotate(45deg); } to { transform: rotate(-30deg); } }
+  @keyframes paddle-r { from { transform: rotate(-45deg); } to { transform: rotate(30deg); } }
+
+  /* 짜잔! 두 팔 번쩍 + 점프 + 반짝이 */
+  .char.tada .rig { animation: hop .7s cubic-bezier(.3, 1.5, .5, 1); }
+  .char.tada .arm-l { transform: rotate(130deg); }
+  .char.tada .arm-r { transform: rotate(-130deg); }
+  .char.tada .face { display: none; }
+  .char.tada .face-happy { display: inline; }
+  @keyframes hop { 0% { transform: scale(1.08, .9); } 40% { transform: translateY(-16px) scale(.96, 1.06); } 100% { transform: none; } }
+  .sparkle { pointer-events: none; position: absolute; left: 50%; top: 45%; font-size: 22px; opacity: 0; text-shadow: 0 2px 4px rgba(120,100,170,.25); line-height: 1; }
+  .char.tada .sparkle { animation: burst .9s ease-out forwards; animation-delay: var(--d, 0s); }
+  @keyframes burst {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    60% { opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.1) rotate(120deg); opacity: 0; }
+  }
+  /* 카테고리 고르면 머리 옆에 전구 */
+  .char .bulb { position: absolute; left: -20px; top: -10px; width: 36px; opacity: 0; transform: scale(.3) rotate(-20deg); transform-origin: 70% 100%;
+    transition: opacity .15s, transform .35s cubic-bezier(.3, 1.6, .5, 1); filter: drop-shadow(0 0 6px rgba(255, 220, 120, .8)); }
+  .char.idea .bulb { opacity: 1; transform: none; }
+  .char.idea .rays { animation: glow .5s ease-in-out infinite alternate; }
+  @keyframes glow { from { opacity: .3; } }
+
+  /* 주제가 정해지면 캐릭터 말풍선 */
+  .char .talk {
+    position: absolute; right: calc(100% + 8px); top: 26px; padding: 7px 12px; border-radius: 16px; white-space: nowrap;
+    font-size: .85rem; font-weight: 800; color: var(--text); background: var(--surface); box-shadow: var(--clay); pointer-events: none;
+    opacity: 0; transform: scale(.6); transform-origin: right center; transition: opacity .2s, transform .35s cubic-bezier(.3, 1.6, .5, 1);
+  }
+  .char .talk::after { /* 꼬리 */
+    content: ""; position: absolute; right: -4px; top: 50%; width: 10px; height: 10px; border-radius: 2px;
+    background: var(--surface); transform: translateY(-50%) rotate(45deg);
+  }
+  .char.talking .talk { opacity: 1; transform: none; }
+
+  /* 캐릭터 클릭: 일어나서 오잉? */
+  .char .upper { transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+  .char.oing .upper { transform: translateY(-11px) rotate(-6deg); transform-origin: 60px 98px; }
+  .char.oing .face { display: none; }
+  .char.oing .face-oing { display: inline; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .result { animation: none; } button { transition: none; }
+    .char, .char * { animation: none !important; transition: none !important; }
+    .sparkle { display: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="logo" aria-hidden="true">
+      <!-- 캐릭터 축소판 (그라데이션은 아래 캐릭터 svg의 defs를 같이 씀) -->
+      <svg viewBox="0 0 120 112">
+        <path d="M60 8C88 8 106 30 106 60C106 86 94 98 60 98C26 98 14 86 14 60C14 30 32 8 60 8Z" fill="url(#clay)"/>
+        <circle cx="38" cy="66" r="12" fill="url(#cheek)"/><circle cx="82" cy="66" r="12" fill="url(#cheek)"/>
+        <ellipse cx="44" cy="100" rx="14" ry="10" fill="url(#clay)"/><ellipse cx="76" cy="100" rx="14" ry="10" fill="url(#clay)"/>
+        <ellipse cx="18" cy="72" rx="9" ry="14" fill="url(#clay)"/><ellipse cx="102" cy="72" rx="9" ry="14" fill="url(#clay)"/>
+        <g fill="none" stroke="#3a3550" stroke-width="2.8" stroke-linecap="round"><g ><ellipse cx="46" cy="53" rx="7.5" ry="9" fill="#3a3550" stroke="none"/><ellipse cx="74" cy="53" rx="7.5" ry="9" fill="#3a3550" stroke="none"/>
+              <ellipse cx="45" cy="50" rx="3.4" ry="4" fill="#fff" stroke="none"/><ellipse cx="73" cy="50" rx="3.4" ry="4" fill="#fff" stroke="none"/>
+              <circle cx="49.5" cy="57" r="1.5" fill="#fff" stroke="none"/><circle cx="77.5" cy="57" r="1.5" fill="#fff" stroke="none"/>
+              <path d="M40 47q-3 -2 -4 -5M42.5 44.5q-1 -3 -.5 -6M80 47q3 -2 4 -5M77.5 44.5q1 -3 .5 -6" stroke-width="2"/><path d="M56 66q4 4 8 0"/></g></g>
+      </svg>
+    </div>
+    <h1>Topic Roulette<small>오늘, 당신은 어떤 분야의 전문가가 되실 건가요?</small></h1>
+  </header>
+
+  <div class="chips" id="chips"></div>
+
+  <div class="stage">
+    <div class="char" id="char" aria-hidden="true">
+      <svg viewBox="0 0 120 112">
+        <defs>
+          <radialGradient id="clay" cx="36%" cy="26%" r="85%">
+            <stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="#eeeafc"/>
+            <stop offset=".78" stop-color="#cfc7f5"/><stop offset="1" stop-color="#aeb4ec"/>
+          </radialGradient>
+          <radialGradient id="cheek"><stop offset="0" stop-color="#ffa9c2" stop-opacity=".9"/><stop offset="1" stop-color="#ffa9c2" stop-opacity="0"/></radialGradient>
+          <radialGradient id="rim" cx="20%" cy="85%" r="60%"><stop offset="0" stop-color="#9fe3ef" stop-opacity=".55"/><stop offset="1" stop-color="#9fe3ef" stop-opacity="0"/></radialGradient>
+        </defs>
+        <ellipse cx="60" cy="108" rx="34" ry="4" fill="rgb(120,100,170)" opacity=".18"/>
+        <g class="rig">
+          <ellipse cx="45" cy="94" rx="11" ry="10" fill="url(#clay)"/>
+          <ellipse cx="75" cy="94" rx="11" ry="10" fill="url(#clay)"/>
+          <g class="upper">
+          <path d="M60 8C88 8 106 30 106 60C106 86 94 98 60 98C26 98 14 86 14 60C14 30 32 8 60 8Z" fill="url(#clay)"/>
+          <path d="M60 8C88 8 106 30 106 60C106 86 94 98 60 98C26 98 14 86 14 60C14 30 32 8 60 8Z" fill="url(#rim)"/>
+          <circle cx="38" cy="66" r="12" fill="url(#cheek)"/>
+          <circle cx="82" cy="66" r="12" fill="url(#cheek)"/>
+          </g>
+          <ellipse cx="44" cy="100" rx="14" ry="10" fill="url(#clay)"/>
+          <ellipse cx="76" cy="100" rx="14" ry="10" fill="url(#clay)"/>
+          <g class="upper">
+          <ellipse class="arm arm-l" cx="18" cy="72" rx="9" ry="14" fill="url(#clay)"/>
+          <ellipse class="arm arm-r" cx="102" cy="72" rx="9" ry="14" fill="url(#clay)"/>
+          <g fill="none" stroke="#3a3550" stroke-width="2.4" stroke-linecap="round">
+            <g class="face face-idle"><ellipse cx="46" cy="53" rx="7.5" ry="9" fill="#3a3550" stroke="none"/><ellipse cx="74" cy="53" rx="7.5" ry="9" fill="#3a3550" stroke="none"/>
+              <ellipse cx="45" cy="50" rx="3.4" ry="4" fill="#fff" stroke="none"/><ellipse cx="73" cy="50" rx="3.4" ry="4" fill="#fff" stroke="none"/>
+              <circle cx="49.5" cy="57" r="1.5" fill="#fff" stroke="none"/><circle cx="77.5" cy="57" r="1.5" fill="#fff" stroke="none"/>
+              <path d="M40 47q-3 -2 -4 -5M42.5 44.5q-1 -3 -.5 -6M80 47q3 -2 4 -5M77.5 44.5q1 -3 .5 -6" stroke-width="2"/><path d="M56 66q4 4 8 0"/></g>
+            <g class="face face-wink"><circle cx="46" cy="54" r="8" fill="#3a3550" stroke="none"/><circle cx="49" cy="51" r="3.2" fill="#fff" stroke="none"/><circle cx="42.5" cy="57.5" r="1.5" fill="#fff" stroke="none"/>
+              <path d="M66 56q8 -9 16 0" stroke-width="3"/><path d="M82 56l4 -3M81 53.5l4.5 -1.5" stroke-width="2"/><path d="M52 64q8 7 16 0"/></g>
+            <g class="face face-focus"><ellipse cx="46" cy="53" rx="7.5" ry="9" fill="#3a3550" stroke="none"/><ellipse cx="74" cy="53" rx="7.5" ry="9" fill="#3a3550" stroke="none"/>
+              <ellipse cx="45" cy="50" rx="3.4" ry="4" fill="#fff" stroke="none"/><ellipse cx="73" cy="50" rx="3.4" ry="4" fill="#fff" stroke="none"/>
+              <circle cx="49.5" cy="57" r="1.5" fill="#fff" stroke="none"/><circle cx="77.5" cy="57" r="1.5" fill="#fff" stroke="none"/>
+              <path d="M40 47q-3 -2 -4 -5M42.5 44.5q-1 -3 -.5 -6M80 47q3 -2 4 -5M77.5 44.5q1 -3 .5 -6" stroke-width="2"/><ellipse cx="60" cy="67" rx="3" ry="3.6"/></g>
+            <g class="face face-happy"><path d="M39 59q8 -10 16 0M65 59q8 -10 16 0" stroke-width="3"/><path d="M53 64q7 10 14 0Z" fill="#f08ba6" stroke="#e8879f"/></g>
+            <g class="face face-oing"><circle cx="47" cy="55" r="6" fill="#3a3550" stroke="none"/><circle cx="73" cy="55" r="6" fill="#3a3550" stroke="none"/>
+              <circle cx="49" cy="52.5" r="2" fill="#fff" stroke="none"/><circle cx="75" cy="52.5" r="2" fill="#fff" stroke="none"/>
+              <path d="M41 43l9 -2M70 41l9 2" stroke-width="2"/><ellipse cx="60" cy="68" rx="2.6" ry="3.2" stroke="#e8879f"/></g>
+          </g>
+          </g>
+        </g>
+      </svg>
+      <span class="talk">이번 주 주제가 정해졌어요!</span>
+      <svg class="bulb" viewBox="0 0 40 48">
+        <defs><radialGradient id="glass" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fffdf0"/><stop offset=".55" stop-color="#ffe89a"/><stop offset="1" stop-color="#f5c75a"/></radialGradient></defs>
+        <g stroke="#f6c85f" stroke-width="2.5" stroke-linecap="round" class="rays"><path d="M20 2v4M5 9l3 3M35 9l-3 3M1 22h4M35 22h4"/></g>
+        <path d="M20 9a12 12 0 0 1 7 21.8V34H13v-3.2A12 12 0 0 1 20 9Z" fill="url(#glass)"/>
+        <rect x="13" y="35" width="14" height="4" rx="2" fill="#c9c0f5"/><rect x="14.5" y="40" width="11" height="4" rx="2" fill="#a99cf2"/>
+      </svg>
+      <span class="sparkle" style="--dx:-58px;--dy:-34px;color:#f6c85f">✦</span>
+      <span class="sparkle" style="--dx:-30px;--dy:-62px;color:#f7a8c4;--d:.05s">✦</span>
+      <span class="sparkle" style="--dx:8px;--dy:-70px;color:#a99cf2;--d:.1s">✦</span>
+      <span class="sparkle" style="--dx:46px;--dy:-48px;color:#8fd6e0;--d:.03s">✦</span>
+      <span class="sparkle" style="--dx:56px;--dy:-6px;color:#f6c85f;--d:.12s">✦</span>
+      <span class="sparkle" style="--dx:-60px;--dy:6px;color:#a6dcc4;--d:.08s">✦</span>
+    </div>
+    <div class="reel-window" aria-hidden="true">
+      <div class="reel-track">
+        <div class="marker"></div>
+        <ul class="reel" id="reel"></ul>
+      </div>
+    </div>
+  </div>
+
+  <button class="spin" id="spin">Spin</button>
+
+  <section class="result" id="result" hidden aria-live="polite">
+    <div class="cat" id="r-cat"></div>
+    <div class="en" id="r-en"></div>
+    <div class="ko" id="r-ko"></div>
+    <button class="done" id="done"></button>
+    <div class="actions">
+      <button id="reroll"></button>
+      <button id="copy">복사</button>
+    </div>
+  </section>
+
+  <details>
+    <summary>뽑기 기록 (<span id="h-count">0</span>)</summary>
+    <ul id="history"></ul>
+  </details>
+</main>
+
+<script>
+const KEY = 'topic-roulette';
+const RANDOM = 'Random';
+const $ = id => document.getElementById(id);
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const dateKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// 이번 주 월요일 0시(로컬)의 날짜 문자열
+function weekKey(now = new Date()) {
+  const daysSinceMonday = (now.getDay() + 6) % 7;
+  return dateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday));
+}
+
+// Microsoft Fluent 3D 이모지 (CDN). 아이콘이 없는 카테고리는 점으로 표시
+const EMOJI_CDN = 'https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
+const ICONS = {
+  [RANDOM]: 'Game die', '논리·추론': 'Puzzle piece', '경제': 'Money bag', '사회·정치': 'Classical building',
+  '심리': 'Brain', '과학·자연': 'Test tube', '기술·디자인': 'Robot', '역사·제도': 'Scroll',
+  '언어·문화': 'Speech balloon', '국제정치': 'Globe showing asia-australia',
+  mic: 'Microphone', fire: 'Fire', check: 'Check mark button',
+};
+const icon = key => ICONS[key]
+  ? `<img class="emo" alt="" src="${EMOJI_CDN}${encodeURIComponent(ICONS[key])}/3D/${ICONS[key].toLowerCase().replace(/ /g, '_')}_3d.png">`
+  : '';
+const GOAL_WEEKS = 8; // PRD 성공 기준
+
+let topics = [], categories = [], selected = RANDOM, spinning = false;
+let state = load();
+
+function load() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY)); } catch {}
+  s = s || { history: [] };
+  s.presented = s.presented || []; // 발표 완료한 주(월요일 날짜)
+  if (s.week !== weekKey()) Object.assign(s, { week: weekKey(), current: null, rerolls: 3 });
+  return s;
+}
+function prevWeek(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d - 7));
+}
+// 연속 발표 주 수. 이번 주를 아직 안 했으면 지난주부터 센다 (이번 주가 끝나기 전엔 연속이 안 끊긴 것)
+function streak() {
+  const done = new Set(state.presented);
+  let wk = done.has(state.week) ? state.week : prevWeek(state.week), n = 0;
+  while (done.has(wk)) { n++; wk = prevWeek(wk); }
+  return n;
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+}
+
+function render() {
+  $('chips').innerHTML = '';
+  for (const c of [RANDOM, ...categories]) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = c;
+    if (ICONS[c]) b.insertAdjacentHTML('afterbegin', icon(c)); else b.classList.add('dot');
+    b.setAttribute('aria-pressed', c === selected);
+    b.disabled = spinning;
+    b.onclick = () => { selected = c; render(); flash('idea', 1300); };
+    $('chips').append(b);
+  }
+
+  const cur = state.current;
+  $('spin').disabled = spinning;
+  $('spin').hidden = !!cur;
+  ch.classList.toggle('talking', !!cur && !spinning);
+
+  $('result').hidden = !cur || spinning;
+  if (cur) {
+    $('r-cat').textContent = cur.category + (cur.randomCategory ? ' · 랜덤 카테고리' : '');
+    $('r-cat').insertAdjacentHTML('afterbegin', icon(cur.category));
+    const presented = state.presented.includes(state.week), n = streak();
+    $('done').classList.toggle('is-done', presented);
+    $('done').innerHTML = (presented ? `${icon('check')} 발표 완료!` : `${icon('mic')} 발표 다 했어요`)
+      + (n ? ` <span class="sep">·</span> ${icon('fire')} ${n}주 연속 / ${GOAL_WEEKS}` : '');
+    $('r-en').textContent = cur.en;
+    $('r-ko').textContent = `(${cur.ko})`;
+  }
+  $('reroll').textContent = state.rerolls > 0 ? `다시 뽑기 (${state.rerolls})` : '다시 뽑기 기회를 모두 썼어요';
+  $('reroll').disabled = spinning || state.rerolls <= 0;
+
+  $('h-count').textContent = state.history.length;
+  $('history').innerHTML = '';
+  for (const h of [...state.history].reverse()) {
+    const li = document.createElement('li');
+    li.textContent = `${h.date} · ${h.en} (${h.ko}) — ${h.category}`;
+    $('history').append(li);
+  }
+}
+
+function showReel(items, offsetRows, animate) {
+  const reel = $('reel');
+  reel.innerHTML = items.map(t => `<li>${t.en.replace(/</g, '&lt;')}</li>`).join('');
+  reel.style.transition = 'none';
+  reel.style.transform = 'translateY(0)';
+  if (!animate) { reel.style.transform = `translateY(calc(var(--row) * ${-offsetRows}))`; return Promise.resolve(); }
+  reel.offsetHeight; // reflow so the transition starts from 0
+  reel.style.transition = 'transform 2.6s cubic-bezier(.12,.8,.22,1)';
+  reel.style.transform = `translateY(calc(var(--row) * ${-offsetRows}))`;
+  // timer, not transitionend: hidden tabs skip the transition and never fire the event
+  return new Promise(r => setTimeout(r, 2600));
+}
+
+async function draw(isReroll) {
+  if (spinning) return;
+  const randomCategory = selected === RANDOM;
+  const category = randomCategory ? pick(categories) : selected;
+  const inCat = topics.filter(t => t.category === category);
+  const drawn = new Set(state.history.map(h => h.en));
+  const fresh = inCat.filter(t => !drawn.has(t.en));
+  const winner = pick(fresh.length ? fresh : inCat); // 다 뽑았으면 카테고리 전체에서 다시
+
+  spinning = true; render();
+  ch.classList.remove('tada', 'oing', 'idea');
+  ch.classList.add('spinning');
+  const slow = setTimeout(() => ch.classList.add('slowing'), 1700); // 룰렛이 느려질 때 팔도 느리게
+  // 당첨 개념은 빼고, 바로 앞 칸과 같은 개념이 연달아 나오지 않게 채운다
+  const others = inCat.filter(t => t !== winner);
+  const reel = [];
+  for (let i = 0; i < 31; i++) reel.push(pick(others.filter(t => t !== reel[i - 1])));
+  const after = reel.pop();
+  await showReel([...reel, winner, after], reel.length - 1, !reducedMotion);
+
+  state.current = { ...winner, randomCategory };
+  if (isReroll) state.rerolls--;
+  state.history.push({ ...winner, date: dateKey(new Date()) });
+  save();
+  spinning = false; render();
+  clearTimeout(slow);
+  ch.classList.remove('spinning', 'slowing');
+  flash('tada', 1800);
+}
+
+const ch = $('char');
+const timers = {};
+// 캐릭터에 잠깐 상태 클래스를 붙였다 뗀다 (같은 동작을 연달아 하면 시간 연장)
+function flash(cls, ms) {
+  clearTimeout(timers[cls]);
+  ch.classList.add(cls);
+  timers[cls] = setTimeout(() => ch.classList.remove(cls), ms);
+}
+ch.onclick = () => { if (!spinning) flash('oing', 1400); };
+$('done').onclick = () => {
+  const i = state.presented.indexOf(state.week);
+  if (i >= 0) state.presented.splice(i, 1); // 잘못 눌렀으면 다시 눌러 취소
+  else { state.presented.push(state.week); flash('tada', 1800); }
+  save(); render();
+};
+
+$('spin').onclick = () => draw(false);
+$('reroll').onclick = () => draw(true);
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(state.current.en); $('copy').textContent = '복사됨'; }
+  catch { $('copy').textContent = '복사 실패'; }
+  setTimeout(() => $('copy').textContent = '복사', 1200);
+};
+
+// no-cache: topics.json만 고쳐도 바로 반영되게
+fetch('topics.json', { cache: 'no-cache' }).then(r => r.json()).then(data => {
+  topics = data;
+  categories = [...new Set(data.map(t => t.category))];
+  const cur = state.current;
+  showReel([{ en: '' }, cur || { en: '?' }, { en: '' }], 0, false);
+  render();
+});
+</script>
+</body>
+</html>
