@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Topic Roulette</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: linear-gradient(160deg, #fde8dc 0%, #f8dbe8 35%, #e4dcf6 70%, #d6e6f7 100%);
@@ -52,7 +52,7 @@
   .chip {
     --tint: #c9c0f5;
     display: inline-flex; align-items: center; gap: 4px;
-    background: var(--surface); border-radius: 999px; padding: 4px 10px 4px 6px; font-size: .8rem; font-weight: 700;
+    background: var(--surface); border-radius: 999px; padding: 4px 10px 4px 6px; font-size: .8rem; font-weight: 500;
     box-shadow: var(--clay);
   }
   .chip.dot::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--tint); box-shadow: inset 0 -1px 2px rgba(0,0,0,.15); }
@@ -64,7 +64,7 @@
   .chip:nth-child(7) { --tint: #d8b9f2; }
   .chip:nth-child(8) { --tint: #f3d98f; }
   .chip:nth-child(9) { --tint: #f2b0a5; }
-  .chip[aria-pressed="true"] { background: var(--tint); color: #3a3550; transform: translateY(-2px); }
+  .chip[aria-pressed="true"] { background: var(--tint); color: #3a3550; transform: translateY(-2px); font-weight: 600; }
   .chip.dot[aria-pressed="true"]::before { background: #fff; }
   .chip:nth-child(10) { --tint: #bfe3b4; }
   .emo { width: 20px; height: 20px; flex: none; filter: drop-shadow(0 2px 2px rgba(var(--shade), .3)); }
