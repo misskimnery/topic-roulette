@@ -302,6 +302,7 @@
     <button class="done" id="done"></button>
     <div class="actions">
       <button id="reroll"></button>
+      <button id="home">완료하고 처음으로</button>
       <button id="copy">복사</button>
     </div>
   </section>
@@ -346,7 +347,8 @@ function load() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(KEY)); } catch {}
   s = s || { history: [] };
-  s.presented = s.presented || []; // 발표 완료한 주(월요일 날짜)
+  s.presented = s.presented || []; // 발표 1회마다 그 주(월요일 날짜) 하나씩. 연속 계산은 주 단위
+  if (s.current && s.current.presented === undefined) s.current.presented = s.presented.includes(s.week); // 이전 저장 형식
   if (s.week !== weekKey()) Object.assign(s, { week: weekKey(), current: null, rerolls: 3 });
   return s;
 }
@@ -387,7 +389,7 @@ function render() {
   if (cur) {
     $('r-cat').textContent = cur.category + (cur.randomCategory ? ' · 랜덤 카테고리' : '');
     $('r-cat').insertAdjacentHTML('afterbegin', icon(cur.category));
-    const presented = state.presented.includes(state.week), n = streak();
+    const presented = !!cur.presented, n = streak();
     $('done').classList.toggle('is-done', presented);
     $('done').innerHTML = (presented ? `${icon('check')} 발표 완료!` : `${icon('mic')} 발표 다 했어요`)
       + (n ? ` <span class="sep">·</span> ${icon('fire')} ${n}주 연속 / ${GOAL_WEEKS}` : '');
@@ -396,6 +398,9 @@ function render() {
   }
   $('reroll').textContent = state.rerolls > 0 ? `다시 뽑기 (${state.rerolls})` : '다시 뽑기 기회를 모두 썼어요';
   $('reroll').disabled = spinning || state.rerolls <= 0;
+  // 발표를 마치면 다시 뽑기 대신 처음 화면으로 돌아가는 버튼
+  $('reroll').hidden = !!cur?.presented;
+  $('home').hidden = !cur?.presented;
 
   $('h-count').textContent = state.history.length;
   $('history').innerHTML = '';
@@ -459,14 +464,21 @@ function flash(cls, ms) {
 }
 ch.onclick = () => { if (!spinning) flash('oing', 1400); };
 $('done').onclick = () => {
-  const i = state.presented.indexOf(state.week);
-  if (i >= 0) state.presented.splice(i, 1); // 잘못 눌렀으면 다시 눌러 취소
+  const cur = state.current;
+  if (cur.presented) state.presented.splice(state.presented.indexOf(state.week), 1); // 잘못 눌렀으면 다시 눌러 취소
   else { state.presented.push(state.week); flash('tada', 1800); }
+  cur.presented = !cur.presented;
   save(); render();
 };
 
 $('spin').onclick = () => draw(false);
 $('reroll').onclick = () => draw(true);
+$('home').onclick = () => {
+  Object.assign(state, { current: null, rerolls: 3 });
+  save(); render();
+  showReel([{ en: '' }, { en: '?' }, { en: '' }], 0, false);
+  scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+};
 $('copy').onclick = async () => {
   try { await navigator.clipboard.writeText(state.current.en); $('copy').textContent = '복사됨'; }
   catch { $('copy').textContent = '복사 실패'; }
